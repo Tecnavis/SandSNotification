@@ -10,14 +10,16 @@ require('dotenv').config();
 if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
   throw new Error('GOOGLE_APPLICATION_CREDENTIALS environment variable is not set');
 }
+const base64Key = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+const serviceAccount = JSON.parse(Buffer.from(base64Key, 'base64').toString('utf8'));
 
-const serviceAccount = require('./config/serviceAccountKey.json'); // Path to your service account JSON file
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  projectId: 'rsa-dashboard-34773',
-});
-
+// Initialize Firebase only once
+if (admin.apps.length === 0) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    projectId: 'rsa-dashboard-34773',  // Add projectId here directly
+  });
+}
 
 const app = express();
 
@@ -30,9 +32,7 @@ app.use(cors({ origin: '*' }));
 
 app.post("/send-notification", async (req, res) => {
   const registrationToken = req.body.token;
-  // console.log('the req token', req.body.token)
   const sound = req.body.sound;
-  // console.log("req.body",req.body.sound)
   const message = {
     token: registrationToken,
     notification: {
@@ -40,20 +40,20 @@ app.post("/send-notification", async (req, res) => {
       body: req.body.body,
     },
     android: {
-      priority: "high", // Set high priority for Android notifications
+      priority: "high",
       notification: {
-        sound: sound, // Set the sound for Android
-        channelId: "high_importance_channel", // Optional: Use a specific notification channel for high-priority sounds
+        sound: sound,
+        channelId: "high_importance_channel",
       },
     },
     apns: {
       headers: {
-        "apns-priority": "10", // Set high priority for iOS notifications
+        "apns-priority": "10",
       },
       payload: {
         aps: {
-          sound: sound, // Set the sound for iOS
-          "content-available": 1, // Ensure high priority for background notifications
+          sound: sound,
+          "content-available": 1,
         },
       },
     },
@@ -67,8 +67,6 @@ app.post("/send-notification", async (req, res) => {
     res.status(500).send("Notification failed");
   }
 });
-
-
 
 app.use('/', require('./routes/index'));
 app.use('/users', require('./routes/users'));
